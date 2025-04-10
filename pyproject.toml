@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "people-counting"
+version = "0.1.0"
+description = ""
+authors = ["Pisek <psk.light@gmail.com>"]
+readme = "README.md"
+package-mode = false
+
+[tool.poetry.dependencies]
+python = "^3.12"
+ultralytics = "^8.0.0"
+opencv-python = "^4.11.0.86"
+numpy = "^2.2.4"
+supervision = "^0.25.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
