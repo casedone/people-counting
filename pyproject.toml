@@ -12,6 +12,7 @@ ultralytics = "^8.0.0"
 opencv-python = "^4.11.0.86"
 numpy = "^2.2.4"
 supervision = "^0.25.1"
+gradio = "^5.24.0"
 
 
 [build-system]

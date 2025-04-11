@@ -96,29 +96,47 @@ class LineCounter:
         return False
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Count people crossing a line in a video using YOLOv8")
+    parser = argparse.ArgumentParser(description="Count people crossing a line in a video using YOLOv8 or YOLOv10")
     parser.add_argument("--video", type=str, required=True, help="Path to input video file")
-    parser.add_argument("--model", type=str, default="yolov8n.pt", help="Path to YOLOv8 model")
+    parser.add_argument("--model", type=str, default="yolov8n.pt", help="Path to YOLO model")
+    parser.add_argument("--model-type", type=str, choices=["yolov8", "yolov10", "yolov11"], default="yolov8", 
+                        help="Type of YOLO model to use (yolov8, yolov10, or yolov11)")
     parser.add_argument("--line-start", type=int, nargs=2, default=[0, 0], help="Starting point of counting line (x y)")
     parser.add_argument("--line-end", type=int, nargs=2, default=[0, 0], help="Ending point of counting line (x y)")
     parser.add_argument("--confidence", type=float, default=0.3, help="Detection confidence threshold")
     parser.add_argument("--output", type=str, default="", help="Path to output video file")
     parser.add_argument("--show", action="store_true", help="Display the video while processing")
+    parser.add_argument("--classes", type=int, nargs="+", default=[0], help="Classes to detect (default: 0 for person)")
     return parser.parse_args()
 
-def main():
-    args = parse_arguments()
+def process_video(video_path, line_start, line_end, model_path, confidence=0.3, classes=[0], 
+                 output_path="object_counting_output.mp4", show=False):
+    """
+    Process a video to count people crossing a line.
     
-    # Load the video
-    video_path = args.video
+    Args:
+        video_path: Path to the input video
+        line_start: Starting point of the counting line (x, y)
+        line_end: Ending point of the counting line (x, y)
+        model_path: Path to the YOLO model
+        confidence: Detection confidence threshold
+        classes: List of classes to detect
+        output_path: Path to save the output video
+        show: Whether to display the video while processing
+        
+    Returns:
+        tuple: (output_path, frame_count, up_count, down_count)
+    """
+    # Check if video exists
     if not os.path.isfile(video_path):
         print(f"Error: Video file '{video_path}' not found")
-        return
+        return None, 0, 0, 0
     
+    # Load the video
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
         print(f"Error: Could not open video '{video_path}'")
-        return
+        return None, 0, 0, 0
     
     # Get video properties
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -126,31 +144,29 @@ def main():
     fps = cap.get(cv2.CAP_PROP_FPS)
     
     # Set default line if not provided
-    line_start = args.line_start
-    line_end = args.line_end
-    
     if line_start == [0, 0] and line_end == [0, 0]:
         # Default to a horizontal line in the middle of the frame
         line_start = [0, frame_height // 2]
         line_end = [frame_width, frame_height // 2]
     
-    # Initialize the line counter
+    # Initialize video writer
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    output_writer = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+    
+    frame_count = 0
+    up_count = 0
+    down_count = 0
+    
+    # Use the LineCounter approach
     line_counter = LineCounter(line_start, line_end)
     
-    # Initialize YOLOv8 model
-    model = YOLO(args.model)
+    # Initialize YOLO model
+    model = YOLO(model_path, task='detect')
     
     # Initialize tracker
     tracker = sv.ByteTrack()
     
-    # Initialize video writer if output is specified
-    output_writer = None
-    if args.output:
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        output_writer = cv2.VideoWriter(args.output, fourcc, fps, (frame_width, frame_height))
-    
     # Process the video
-    frame_count = 0
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
@@ -158,8 +174,9 @@ def main():
         
         frame_count += 1
         
-        # Run YOLOv8 inference on the frame
-        results = model(frame, conf=args.confidence, classes=0)  # Class 0 is person in COCO dataset
+        # Run YOLO inference on the frame
+        # Ensure confidence is a Python native float, not float32
+        results = model(frame, conf=float(confidence), classes=classes)
         
         # Get detections
         detections = sv.Detections.from_ultralytics(results[0])
@@ -201,11 +218,11 @@ def main():
         # Draw counting region
         region_points = []
         for t in np.linspace(0, 1, 100):
-            point = line_start + t * (np.array(line_end) - np.array(line_start))
+            point = np.array(line_start) + t * (np.array(line_end) - np.array(line_start))
             region_points.append(point + line_counter.normal_vector * line_counter.counting_region)
         
         for t in np.linspace(1, 0, 100):
-            point = line_start + t * (np.array(line_end) - np.array(line_start))
+            point = np.array(line_start) + t * (np.array(line_end) - np.array(line_start))
             region_points.append(point - line_counter.normal_vector * line_counter.counting_region)
         
         region_points = np.array(region_points, dtype=np.int32)
@@ -216,23 +233,45 @@ def main():
                     (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         
         # Display the frame
-        if args.show:
+        if show:
             cv2.imshow('People Counter', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
         
         # Write the frame to output video
-        if output_writer:
-            output_writer.write(frame)
+        output_writer.write(frame)
+    
+    # Get counts
+    up_count = line_counter.up_count
+    down_count = line_counter.down_count
     
     # Release resources
     cap.release()
-    if output_writer:
-        output_writer.release()
+    output_writer.release()
     cv2.destroyAllWindows()
     
-    print(f"Processing complete. {frame_count} frames processed.")
-    print(f"People count - Up: {line_counter.up_count}, Down: {line_counter.down_count}")
+    # Return results
+    return output_path, frame_count, up_count, down_count
+
+def main():
+    args = parse_arguments()
+    
+    # Process the video
+    output_path, frame_count, up_count, down_count = process_video(
+        video_path=args.video,
+        line_start=args.line_start,
+        line_end=args.line_end,
+        model_path=args.model,
+        confidence=args.confidence,
+        classes=args.classes,
+        output_path=args.output if args.output else "object_counting_output.mp4",
+        show=args.show
+    )
+    
+    # Print results
+    if output_path:
+        print(f"Processing complete. {frame_count} frames processed.")
+        print(f"People count - Up: {up_count}, Down: {down_count}")
 
 if __name__ == "__main__":
     main()

@@ -129,18 +129,80 @@ class LineSelector:
             return self.line_start, self.line_end
         return None, None
     
-    def generate_command(self):
+    def generate_command(self, model_type="yolov8"):
         """Generate the command to run people_counter.py with the selected line."""
         if self.line_start and self.line_end:
             return (f"python people_counter.py --video {self.video_path} "
                    f"--line-start {self.line_start[0]} {self.line_start[1]} "
                    f"--line-end {self.line_end[0]} {self.line_end[1]} "
+                   f"--model-type {model_type} "
                    f"--show")
         return None
+    
+    def process_video_directly(self, model_type="yolov8", model_size="n"):
+        """Process the video directly using the process_video function from people_counter.py."""
+        if not self.line_start or not self.line_end:
+            print("No line selected")
+            return False
+        
+        try:
+            import people_counter
+            
+            # Generate output path
+            import time
+            output_dir = os.path.join(os.getcwd(), "output")
+            os.makedirs(output_dir, exist_ok=True)
+            timestamp = int(time.time())
+            output_path = os.path.join(output_dir, f"people_counting_{timestamp}.mp4")
+            
+            # Get model path
+            model_path = f"{model_type}{model_size}.pt"
+            if not os.path.exists(model_path):
+                print(f"Model file {model_path} not found")
+                return False
+            
+            print(f"Processing video: {self.video_path}")
+            print(f"Line: from {self.line_start} to {self.line_end}")
+            print(f"Model: {model_path}")
+            print(f"Output: {output_path}")
+            
+            # Process the video
+            result_path, frame_count, up_count, down_count = people_counter.process_video(
+                video_path=self.video_path,
+                line_start=self.line_start,
+                line_end=self.line_end,
+                model_path=model_path,
+                confidence=0.3,
+                classes=[0],  # Class 0 is person in COCO dataset
+                output_path=output_path,
+                show=True  # Show the video while processing
+            )
+            
+            if result_path:
+                print(f"\nProcessing complete. {frame_count} frames processed.")
+                print(f"People count - Up: {up_count}, Down: {down_count}, Total: {up_count + down_count}")
+                print(f"Output video saved to: {output_path}")
+                return True
+            else:
+                print("Error processing video")
+                return False
+                
+        except ImportError:
+            print("Could not import people_counter module. Using command line approach instead.")
+            command = self.generate_command(model_type)
+            if command:
+                import subprocess
+                subprocess.run(command, shell=True)
+                return True
+            return False
 
 def main():
     parser = argparse.ArgumentParser(description="Interactive tool to select a counting line for people_counter.py")
     parser.add_argument("--video", type=str, required=True, help="Path to input video file")
+    parser.add_argument("--model-type", type=str, choices=["yolov8", "yolov10", "yolov11"], default="yolov8",
+                        help="Type of YOLO model to use (yolov8, yolov10, or yolov11)")
+    parser.add_argument("--model-size", type=str, choices=["n", "s", "m", "l", "x"], default="n",
+                        help="YOLO model size: n(ano), s(mall), m(edium), l(arge), x(large)")
     args = parser.parse_args()
     
     # Check if video exists
@@ -168,16 +230,25 @@ def main():
     if start and end:
         print(f"Line selected: from {start} to {end}")
         
-        # Generate and display command
-        command = selector.generate_command()
-        print("\nRun the following command to count people crossing this line:")
+        # Generate command for display purposes
+        command = selector.generate_command(args.model_type)
+        print("\nEquivalent command line:")
         print(command)
         
-        # Ask if user wants to run the command now
-        response = input("\nDo you want to run this command now? (y/n): ")
+        # Ask if user wants to process the video now
+        response = input("\nDo you want to process the video now? (y/n): ")
         if response.lower() == 'y':
-            import subprocess
-            subprocess.run(command, shell=True)
+            # Try to use the direct processing method first
+            try:
+                selector.process_video_directly(
+                    model_type=args.model_type,
+                    model_size=args.model_size
+                )
+            except Exception as e:
+                print(f"Error using direct processing: {str(e)}")
+                print("Falling back to command line approach...")
+                import subprocess
+                subprocess.run(command, shell=True)
     else:
         print("No line was selected")
 
