@@ -7,11 +7,11 @@ import os
 import datetime
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Detect people in a video using YOLOv8 or YOLOv10")
+    parser = argparse.ArgumentParser(description="Detect people in a video using YOLO12")
     parser.add_argument("--video", type=str, required=True, help="Path to input video file")
-    parser.add_argument("--model", type=str, default="yolov8n.pt", help="Path to YOLO model")
-    parser.add_argument("--model-type", type=str, choices=["yolov8", "yolov10", "yolov11"], default="yolov8", 
-                        help="Type of YOLO model to use (yolov8, yolov10, or yolov11)")
+    parser.add_argument("--model", type=str, default="models/yolo12n.pt", help="Path to YOLO model")
+    parser.add_argument("--model-type", type=str, choices=["yolo12"], default="yolo12", 
+                        help="Type of YOLO model to use (yolo12)")
     parser.add_argument("--confidence", type=float, default=0.3, help="Detection confidence threshold")
     parser.add_argument("--output", type=str, default="", help="Path to output video file")
     parser.add_argument("--show", action="store_true", help="Display the video while processing")

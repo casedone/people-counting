@@ -96,11 +96,11 @@ class LineCounter:
         return False
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description="Count people crossing a line in a video using YOLOv8 or YOLOv10")
+    parser = argparse.ArgumentParser(description="Count people crossing a line in a video using YOLO12")
     parser.add_argument("--video", type=str, required=True, help="Path to input video file")
-    parser.add_argument("--model", type=str, default="yolov8n.pt", help="Path to YOLO model")
-    parser.add_argument("--model-type", type=str, choices=["yolov8", "yolov10", "yolov11"], default="yolov8", 
-                        help="Type of YOLO model to use (yolov8, yolov10, or yolov11)")
+    parser.add_argument("--model", type=str, default="models/yolo12n.pt", help="Path to YOLO model")
+    parser.add_argument("--model-type", type=str, choices=["yolo12"], default="yolo12", 
+                        help="Type of YOLO model to use (yolo12)")
     parser.add_argument("--line-start", type=int, nargs=2, default=[0, 0], help="Starting point of counting line (x y)")
     parser.add_argument("--line-end", type=int, nargs=2, default=[0, 0], help="Ending point of counting line (x y)")
     parser.add_argument("--confidence", type=float, default=0.3, help="Detection confidence threshold")
@@ -161,6 +161,7 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
     line_counter = LineCounter(line_start, line_end)
     
     # Initialize YOLO model
+    print(f"model_path = {model_path}")
     model = YOLO(model_path, task='detect')
     
     # Initialize tracker

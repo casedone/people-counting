@@ -17,11 +17,11 @@ def run_command(command):
     process.wait()
     return process.returncode
 
-def download_file(url, output_path):
+def download_file(url, output_path, redownload=False):
     """Download a file from a URL"""
     import requests
     
-    if os.path.exists(output_path):
+    if os.path.exists(output_path) and not redownload:
         print(f"File already exists: {output_path}")
         return True
     
@@ -42,44 +42,55 @@ def download_file(url, output_path):
 
 def main():
     parser = argparse.ArgumentParser(description="Setup and demo for people counting application")
-    parser.add_argument("--model-type", choices=["yolov8", "yolov10", "yolov11"], default="yolov8", 
-                        help="Type of YOLO model to use (yolov8, yolov10, or yolov11)")
-    parser.add_argument("--model-size", choices=["n", "s", "m", "l", "x"], default="n", 
-                        help="YOLO model size: n(ano), s(mall), m(edium), l(arge), x(large)")
+    parser.add_argument("--model-type", choices=["yolo12", "yolo11"], default="yolo12", 
+                        help="Type of YOLO model to use (yolo12)")
+    parser.add_argument("--model-size", choices=["n", "s", "m", "l", "x", "all"], default="all", 
+                        help="YOLO model size: n(ano), s(mall), m(edium), l(arge), x(large), or all")
+    parser.add_argument("--version", choices=["v8.3.0"], default="v8.3.0", 
+                        help="Version of repo models to download. Default is v8.3.0. Check ultralytics website for more information.")
     parser.add_argument("--no-demo", action="store_true", help="Skip running the demo")
     parser.add_argument("--custom-video", type=str, help="Path to a custom video for the demo")
+    parser.add_argument("--redownload", action="store_true", default=False, 
+                        help="Force redownload of YOLO models even if they already exist")
     args = parser.parse_args()
     
-    # Install dependencies if needed
-    if not os.path.exists("requirements.txt"):
-        print("Error: requirements.txt not found. Please run this script from the project directory.")
-        return
-    
-    print("Installing dependencies...")
-    run_command("pip install -r requirements.txt")
-    
-    # Install additional dependencies for this script
-    run_command("pip install requests")
-    
-    # Download YOLO model
+    # Create necessary directories if they don't exist
+    for directory in ["input", "output", "models"]:
+        os.makedirs(directory, exist_ok=True)
+        print(f"Ensured directory exists: {directory}")
+
+    # Download YOLO models
     model_type = args.model_type
     model_size = args.model_size
-    model_file = f"{model_type}{model_size}.pt"
+    redownload = args.redownload  # Capture the redownload argument
+    version = args.version
     
-    if not os.path.exists(model_file):
-        print(f"Downloading {model_type.upper()}{model_size} model...")
-        
-        if model_type == "yolov8":
-            model_url = f"https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8{model_size}.pt"
-        elif model_type == "yolov10":
-            # YOLOv10 models are hosted at a different location
-            model_url = f"https://github.com/ultralytics/assets/releases/download/v8.2.0/yolov10{model_size}.pt"
-        
-        if not download_file(model_url, model_file):
-            print("Failed to download model. Please download it manually.")
-            return
+    # Define model sizes to download
+    if model_size == "all":
+        model_sizes = ["n", "s", "m", "l", "x"]
     else:
-        print(f"{model_type.upper()} model already exists: {model_file}")
+        model_sizes = [model_size]
+    
+    # Download each model
+    for size in model_sizes:
+        model_file = f"{model_type}{size}.pt"
+        model_path = os.path.join("models", model_file)
+        
+        if not os.path.exists(model_path) or redownload:
+            print(f"Downloading {model_type.upper()}{size} model...")
+            model_url = f"https://github.com/ultralytics/assets/releases/download/{version}/{model_type}{size}.pt"
+            
+            if not download_file(model_url, model_path, redownload):
+                print(f"Failed to download {model_file}. Please download it manually.")
+                continue
+        else:
+            print(f"{model_type.upper()} model already exists: {model_path}")
+    
+    # Use the smallest model for demo if all were downloaded
+    if model_size == "all":
+        model_size = "n"
+    
+    model_file = os.path.join("models", f"{model_type}{model_size}.pt")
     
     if args.no_demo:
         print("Setup complete. Skipping demo.")
@@ -105,9 +116,8 @@ def main():
         # Try to use the process_video function directly
         import people_counter
         
-        # Create output directory if it doesn't exist
+        # Output directory already created at the beginning
         output_dir = os.path.join(os.getcwd(), "output")
-        os.makedirs(output_dir, exist_ok=True)
         
         # Generate a unique filename based on timestamp
         import time

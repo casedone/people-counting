@@ -1,13 +1,13 @@
 __pycache__/
 .DS_Store
 
-yolov8*
-yolov10*
 sample_pedestrians.mp4
 
 output/*
 !output/.gitkeep
 input/*
 !input/.gitkeep
+models/*
+!models/.gitkeep
 
 requirements.txt

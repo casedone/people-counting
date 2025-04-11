@@ -199,8 +199,8 @@ class LineSelector:
 def main():
     parser = argparse.ArgumentParser(description="Interactive tool to select a counting line for people_counter.py")
     parser.add_argument("--video", type=str, required=True, help="Path to input video file")
-    parser.add_argument("--model-type", type=str, choices=["yolov8", "yolov10", "yolov11"], default="yolov8",
-                        help="Type of YOLO model to use (yolov8, yolov10, or yolov11)")
+    parser.add_argument("--model-type", type=str, choices=["yolo12"], default="yolo12",
+                        help="Type of YOLO model to use (yolo12)")
     parser.add_argument("--model-size", type=str, choices=["n", "s", "m", "l", "x"], default="n",
                         help="YOLO model size: n(ano), s(mall), m(edium), l(arge), x(large)")
     args = parser.parse_args()

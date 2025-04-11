@@ -85,7 +85,7 @@ class GradioDetector:
         output_path = os.path.join(output_dir, output_filename)
         
         # Get model path
-        model_path = f"{model_type}{model_size}.pt"
+        model_path = f"models/{model_type}{model_size}.pt"
         if not os.path.exists(model_path):
             return None, f"Model file {model_path} not found. Please run setup_and_demo.py first to download it."
         
@@ -273,7 +273,7 @@ class GradioLineSelector:
         output_path = os.path.join(output_dir, output_filename)
         
         # Get model path
-        model_path = f"{model_type}{model_size}.pt"
+        model_path = f"models/{model_type}{model_size}.pt"
         if not os.path.exists(model_path):
             return None, f"Model file {model_path} not found. Please run setup_and_demo.py first to download it."
         
@@ -378,10 +378,10 @@ def create_interface():
                         
                         # Model selection
                         count_model_type = gr.Radio(
-                            choices=["yolov8", "yolov10", "yolov11"],
-                            value="yolov8",
+                            choices=["yolo12"],
+                            value="yolo12",
                             label="YOLO Model Type",
-                            info="Select between YOLOv8, YOLOv10, and YOLOv11"
+                            info="Using YOLO12 for object detection"
                         )
                         
                         count_model_size = gr.Radio(
@@ -436,10 +436,10 @@ def create_interface():
                         
                         # Model selection
                         detect_model_type = gr.Radio(
-                            choices=["yolov8", "yolov10", "yolov11"],
-                            value="yolov8",
+                            choices=["yolo12"],
+                            value="yolo12",
                             label="YOLO Model Type",
-                            info="Select between YOLOv8, YOLOv10, and YOLOv11"
+                            info="Using YOLO12 for object detection"
                         )
                         
                         detect_model_size = gr.Radio(
@@ -552,8 +552,8 @@ def create_interface():
 
 if __name__ == "__main__":
     # Check if YOLO model exists
-    if not (os.path.exists("yolov8n.pt") or os.path.exists("yolov10n.pt")):
-        print("YOLO model not found. Running setup script to download it...")
+    if not os.path.exists("models/yolo12n.pt"):
+        print("YOLO12 model not found. Running setup script to download it...")
         subprocess.run(["python", "setup_and_demo.py", "--no-demo"], check=True)
     
     # Check if ffmpeg is installed
