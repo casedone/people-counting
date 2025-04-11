@@ -185,7 +185,7 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
         detections = tracker.update_with_detections(detections)
         
         # Process each detection
-        for i, (xyxy, confidence, class_id, tracker_id) in enumerate(zip(
+        for i, (xyxy, _confidence, class_id, tracker_id) in enumerate(zip(
             detections.xyxy, detections.confidence, detections.class_id, detections.tracker_id
         )):
             if tracker_id is None:

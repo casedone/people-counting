@@ -67,10 +67,10 @@ def process_video(video_path, model_path, confidence=0.3, classes=[0],
             break
         
         frame_count += 1
-        
         # Run YOLO inference on the frame
         # Ensure confidence is a Python native float, not float32
-        results = model(frame, conf=float(confidence), classes=classes)
+        results = model(frame, conf=float(confidence), classes=classes, verbose=True)
+        # results = model(frame, conf=float(0.1), classes=classes)
         
         # Get detections
         detections = sv.Detections.from_ultralytics(results[0])
@@ -80,7 +80,7 @@ def process_video(video_path, model_path, confidence=0.3, classes=[0],
         total_detections += frame_detections
         
         # Process each detection
-        for i, (xyxy, confidence, class_id) in enumerate(zip(
+        for i, (xyxy, _confidence, class_id) in enumerate(zip(
             detections.xyxy, detections.confidence, detections.class_id
         )):
             # Draw bounding box
@@ -88,7 +88,7 @@ def process_video(video_path, model_path, confidence=0.3, classes=[0],
             cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
             
             # Draw class and confidence
-            label = f"{model.model.names[class_id]}: {confidence:.2f}"
+            label = f"{model.model.names[class_id]}: {_confidence:.2f}"
             cv2.putText(frame, label, (int(x1), int(y1) - 10), 
                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         
