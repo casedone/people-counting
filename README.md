@@ -26,7 +26,16 @@ cd people-counting
 pip install -r requirements.txt
 ```
 
-3. Download a YOLO model (if you don't have one already):
+3. FFmpeg Requirements:
+   - This project requires FFmpeg for video processing
+   - The Gradio interface specifically needs both ffmpeg and ffprobe
+   - If you don't have ffprobe installed, the project includes a workaround:
+     - A symlink named `ffprobe` that points to your existing ffmpeg executable
+     - A Python script `ffprobe.py` that provides additional functionality
+   - These files are automatically set up when you run the application
+   - If you encounter video playback issues in the Gradio interface, ensure both files exist in the project directory
+
+4. Download a YOLO model (if you don't have one already):
 ```bash
 # YOLOv8 models
 # For a small model (fastest)
@@ -167,6 +176,19 @@ The application uses ByteTrack to maintain consistent tracking IDs for each pers
 - **Low detection accuracy**: Try using a larger YOLOv8 model (yolov8m.pt or yolov8l.pt) or adjust the confidence threshold.
 - **Missed crossings**: Adjust the counting region size (modify the `counting_region` parameter in the code).
 - **Memory issues**: If you encounter memory problems with large videos, try using a smaller YOLOv8 model.
+- **Video playback issues in Gradio interface**: 
+  - Ensure both ffmpeg and ffprobe are available
+  - If you don't have ffprobe installed system-wide, the application creates:
+    - A symlink named `ffprobe` pointing to your ffmpeg executable
+    - A Python script `ffprobe.py` that provides additional functionality
+  - If these files are missing or corrupted, recreate them:
+    ```bash
+    # Create the symlink (assuming ffmpeg is at /usr/local/bin/ffmpeg)
+    ln -s /usr/local/bin/ffmpeg ffprobe
+    
+    # Ensure the Python script exists and is executable
+    chmod +x ffprobe.py
+    ```
 
 ## License
 
