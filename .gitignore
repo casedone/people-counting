@@ -5,6 +5,9 @@ yolov8*
 yolov10*
 sample_pedestrians.mp4
 
-output
+output/*
+!output/.gitkeep
+input/*
+!input/.gitkeep
 
 requirements.txt
