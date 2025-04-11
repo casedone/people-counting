@@ -151,7 +151,7 @@ class GradioDetector:
         return result_path, stats
 
 
-class GradioLineSelector:
+class GradioLineCounter:
     def __init__(self):
         self.line_start = None
         self.line_end = None
@@ -361,7 +361,7 @@ class GradioLineSelector:
 
 def create_interface():
     # Create the line selector and detector
-    line_selector = GradioLineSelector()
+    line_counter = GradioLineCounter()
     detector = GradioDetector()
     
     # Define the interface
@@ -497,31 +497,31 @@ def create_interface():
         
         # Set up event handlers for People Counting tab
         count_load_btn.click(
-            fn=line_selector.load_video,
+            fn=line_counter.load_video,
             inputs=[count_video_input],
             outputs=[count_image_display, count_status_msg]
         )
         
         count_update_frame_btn.click(
-            fn=line_selector.update_frame,
+            fn=line_counter.update_frame,
             inputs=[count_frame_slider],
             outputs=[count_image_display, count_status_msg]
         )
         
         count_image_display.select(
-            fn=line_selector.draw_line,
+            fn=line_counter.draw_line,
             inputs=[],
             outputs=[count_image_display, count_status_msg]
         )
         
         count_reset_line_btn.click(
-            fn=line_selector.reset_line,
+            fn=line_counter.reset_line,
             inputs=[],
             outputs=[count_image_display, count_status_msg]
         )
         
         count_run_btn.click(
-            fn=line_selector.run_counting,
+            fn=line_counter.run_counting,
             inputs=[count_model_type, count_model_size, count_confidence],
             outputs=[count_result_video, count_result_stats]
         )
@@ -574,6 +574,14 @@ def create_interface():
     return interface
 
 if __name__ == "__main__":
+    # Parse command line arguments
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="People Counting and Detection Interface")
+    parser.add_argument("--share", action="store_true", default=True, 
+                        help="Whether to create a publicly shareable link (default: True)")
+    args = parser.parse_args()
+    
     # Check if YOLO model exists
     if not os.path.exists("models/yolo12n.pt"):
         print("YOLO12 model not found. Running setup script to download it...")
@@ -610,4 +618,4 @@ if __name__ == "__main__":
     
     # Create and launch the interface
     interface = create_interface()
-    interface.launch()
+    interface.launch(share=args.share)
