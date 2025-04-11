@@ -9,6 +9,8 @@ input/*
 !input/.gitkeep
 models/*
 !models/.gitkeep
+batch_jobs/*
+!batch_jobs/.gitkeep
 
 requirements.txt
 

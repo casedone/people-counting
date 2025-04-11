@@ -5,6 +5,7 @@ from ultralytics import YOLO
 import supervision as sv
 from collections import defaultdict
 import os
+import datetime
 
 class LineCounter:
     def __init__(self, start_point, end_point, counting_region=15):
@@ -162,7 +163,7 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
     
     # Initialize YOLO model
     print(f"model_path = {model_path}")
-    model = YOLO(model_path, task='detect')
+    model = YOLO(model_path, task='detect', verbose=False)
     
     # Initialize tracker
     tracker = sv.ByteTrack()
