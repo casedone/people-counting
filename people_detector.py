@@ -116,7 +116,9 @@ def process_video(video_path, model_path, confidence=0.3, classes=[0],
 def main():
     args = parse_arguments()
     
-    # Process the video
+    # Ensure output directory exists
+    os.makedirs("output", exist_ok=True)
+    
     # Generate output filename with timestamp
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     original_filename = os.path.splitext(os.path.basename(args.video))[0]

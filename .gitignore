@@ -11,3 +11,5 @@ models/*
 !models/.gitkeep
 
 requirements.txt
+
+.gradio/*

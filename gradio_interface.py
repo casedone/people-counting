@@ -1,18 +1,13 @@
 #!/usr/bin/env python3
 import os
 import cv2
-import numpy as np
 import gradio as gr
-import tempfile
 import subprocess
-from pathlib import Path
 import time
+import datetime
 import shutil
 import people_counter
 import people_detector
-from people_counter import LineCounter
-from ultralytics import YOLO
-import supervision as sv
 
 class GradioDetector:
     def __init__(self):
@@ -79,9 +74,10 @@ class GradioDetector:
         output_dir = os.path.join(os.getcwd(), "output")
         os.makedirs(output_dir, exist_ok=True)
         
-        # Generate a unique filename based on timestamp
-        timestamp = int(time.time())
-        output_filename = f"people_detection_{timestamp}.mp4"
+        # Generate a unique filename based on original video name and timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        original_filename = os.path.splitext(os.path.basename(self.video_path))[0]
+        output_filename = f"{original_filename}_detections_{timestamp}.mp4"
         output_path = os.path.join(output_dir, output_filename)
         
         # Get model path
@@ -101,11 +97,16 @@ class GradioDetector:
             if result_video is None:
                 return None, f"Error processing video: {stats}"
             
-            # Check if ffprobe is available
-            if shutil.which("ffprobe") is None:
+            # Check if our Python-based ffprobe replacement exists
+            ffprobe_script_path = os.path.join(os.getcwd(), "ffprobe.py")
+            if os.path.exists(ffprobe_script_path):
+                # If we have a Python-based ffprobe replacement, we can use it directly with the video
+                return result_video, stats
+            else:
                 # If ffprobe is not available, we can't use Gradio's video component
-                # Instead, return a message with the path to the output video
-                return None, f"{stats}\n\nOutput video saved to: {output_path}\n(Note: Video preview not available because ffprobe is not installed)"
+                # Instead, create a custom message with a direct file path that can be opened manually
+                output_rel_path = os.path.relpath(output_path, os.getcwd())
+                return None, f"{stats}\n\nOutput video saved to: {output_rel_path}\n\nTo view the video, please open it with your video player."
             
             return result_video, stats
             
@@ -267,9 +268,10 @@ class GradioLineSelector:
         output_dir = os.path.join(os.getcwd(), "output")
         os.makedirs(output_dir, exist_ok=True)
         
-        # Generate a unique filename based on timestamp
-        timestamp = int(time.time())
-        output_filename = f"people_counting_{timestamp}.mp4"
+        # Generate a unique filename based on original video name and timestamp
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        original_filename = os.path.splitext(os.path.basename(self.video_path))[0]
+        output_filename = f"{original_filename}_counting_{timestamp}.mp4"
         output_path = os.path.join(output_dir, output_filename)
         
         # Get model path
@@ -287,15 +289,24 @@ class GradioLineSelector:
                 self.line_end, 
                 float(confidence)  # Ensure it's a Python float
             )
+
+            print("DEBUG ====== ")
+            print(f"result_video: {result_video}")
+            print(f"stats: {stats}")
             
             if result_video is None:
                 return None, f"Error processing video: {stats}"
             
-            # Check if ffprobe is available
-            if shutil.which("ffprobe") is None:
+            # Check if our Python-based ffprobe replacement exists
+            ffprobe_script_path = os.path.join(os.getcwd(), "ffprobe.py")
+            if os.path.exists(ffprobe_script_path):
+                # If we have a Python-based ffprobe replacement, we can use it directly with the video
+                return result_video, stats
+            else:
                 # If ffprobe is not available, we can't use Gradio's video component
-                # Instead, return a message with the path to the output video
-                return None, f"{stats}\n\nOutput video saved to: {output_path}\n(Note: Video preview not available because ffprobe is not installed)"
+                # Instead, create a custom message with a direct file path that can be opened manually
+                output_rel_path = os.path.relpath(output_path, os.getcwd())
+                return None, f"{stats}\n\nOutput video saved to: {output_rel_path}\n\nTo view the video, please open it with your video player."
             
             return result_video, stats
             
@@ -556,17 +567,34 @@ if __name__ == "__main__":
         print("YOLO12 model not found. Running setup script to download it...")
         subprocess.run(["python", "setup_and_demo.py", "--no-demo"], check=True)
     
-    # Check if ffmpeg is installed
-    ffmpeg_installed = shutil.which("ffmpeg") is not None
-    ffprobe_installed = shutil.which("ffprobe") is not None
+    # Set path to local ffmpeg installation and Python-based ffprobe replacement
+    ffmpeg_dir = os.path.join(os.getcwd(), "ffmpeg")
+    ffmpeg_path = os.path.join(ffmpeg_dir, "ffmpeg")
+    ffprobe_script_path = os.path.join(os.getcwd(), "ffprobe.py")
     
-    if not ffmpeg_installed or not ffprobe_installed:
-        print("WARNING: FFmpeg or ffprobe not found in PATH.")
+    # Add current directory to PATH to find the ffprobe script
+    os.environ["PATH"] = os.getcwd() + os.pathsep + os.environ["PATH"]
+    
+    # Check if ffmpeg executables exist in the local directory
+    if os.path.exists(ffmpeg_dir):
+        # Add ffmpeg directory to PATH environment variable
+        os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ["PATH"]
+        print(f"Using local ffmpeg installation from: {ffmpeg_dir}")
+    
+    # Check if Python-based ffprobe replacement exists
+    if os.path.exists(ffprobe_script_path):
+        print(f"Using Python-based ffprobe replacement: {ffprobe_script_path}")
+    
+    # Check if ffmpeg is installed (either locally or system-wide)
+    ffmpeg_installed = shutil.which("ffmpeg") is not None
+    
+    if not ffmpeg_installed:
+        print("WARNING: FFmpeg not found in PATH or local directory.")
         print("Some video processing features may not work correctly.")
-        print("Please install FFmpeg to enable all features:")
-        print("  - macOS: brew install ffmpeg")
-        print("  - Linux: apt-get install ffmpeg")
-        print("  - Windows: Download from https://ffmpeg.org/download.html")
+    
+    # Set environment variables for ffprobe path that Gradio might use
+    os.environ["FFPROBE_PATH"] = ffprobe_script_path
+    os.environ["GRADIO_FFPROBE_PATH"] = ffprobe_script_path
     
     # Create and launch the interface
     interface = create_interface()

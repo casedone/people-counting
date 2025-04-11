@@ -257,6 +257,17 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
 def main():
     args = parse_arguments()
     
+    # Generate output filename with timestamp
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    original_filename = os.path.splitext(os.path.basename(args.video))[0]
+    output_filename = f"{original_filename}_counting_{timestamp}.mp4"
+    
+    # Ensure output directory exists
+    os.makedirs("output", exist_ok=True)
+    
+    # Set output path
+    output_path_arg = args.output if args.output else os.path.join("output", output_filename)
+    
     # Process the video
     output_path, frame_count, up_count, down_count = process_video(
         video_path=args.video,
@@ -265,7 +276,7 @@ def main():
         model_path=args.model,
         confidence=args.confidence,
         classes=args.classes,
-        output_path=args.output if args.output else "object_counting_output.mp4",
+        output_path=output_path_arg,
         show=args.show
     )
     
