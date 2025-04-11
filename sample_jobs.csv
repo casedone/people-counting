@@ -1,0 +1,3 @@
+video_file,line_start,line_end,confidence
+input/video-test-1.mp4,"813,277","799,578",0.3
+input/video-test-2.mp4,"810,280","801,575",0.4

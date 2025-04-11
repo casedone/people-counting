@@ -578,7 +578,7 @@ if __name__ == "__main__":
     import argparse
     
     parser = argparse.ArgumentParser(description="People Counting and Detection Interface")
-    parser.add_argument("--share", action="store_true", default=True, 
+    parser.add_argument("--share", action="store_true", default=False, 
                         help="Whether to create a publicly shareable link (default: True)")
     args = parser.parse_args()
     

@@ -15,6 +15,7 @@ requests = "^2.32.3"
 ultralytics = "8.3.107"
 torch = "2.5.1"
 ffmpeg-python = "^0.2.0"
+pandas = "^2.2.0"
 
 
 [build-system]

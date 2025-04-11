@@ -12,6 +12,7 @@ This application counts people crossing a defined line in a video using YOLOv8, 
 - Visualization of detections, tracking IDs, and count
 - Option to save processed video with annotations
 - Gradio web interface for easy interaction
+- Batch processing for multiple videos
 
 ## Installation
 
@@ -152,6 +153,134 @@ python people_counter.py --video pedestrians.mp4 --model yolov11n.pt --model-typ
 # Count multiple object classes (person and car)
 python people_counter.py --video traffic.mp4 --classes 0 2 --use-solutions --show
 ```
+
+## Batch Processing
+
+This module allows you to process multiple videos for people counting in batch mode. It takes a job file that specifies video filenames and counting line coordinates, processes each video, and saves the results in the output folder.
+
+### Usage
+
+```bash
+python batch_processor.py --job-file path/to/job_file.json
+```
+
+### Command Line Arguments
+
+- `--job-file`: Path to the job file (JSON or CSV format) [required]
+- `--model`: Path to the YOLO model (default: "models/yolo12n.pt")
+- `--confidence`: Detection confidence threshold (default: 0.3)
+- `--output-dir`: Directory to save output videos and statistics (default: "output")
+- `--summary-format`: Format for the summary file (csv or json, default: csv)
+
+### Job File Format
+
+The job file can be in either JSON or CSV format.
+
+#### JSON Format
+
+```json
+{
+  "jobs": [
+    {
+      "video_file": "input/video1.mp4",
+      "line_start": [0, 360],
+      "line_end": [640, 360],
+      "confidence": 0.3
+    },
+    {
+      "video_file": "input/video2.mp4",
+      "line_start": [320, 0],
+      "line_end": [320, 720],
+      "confidence": 0.4
+    }
+  ]
+}
+```
+
+Alternatively, you can use a simpler format with just an array of jobs:
+
+```json
+[
+  {
+    "video_file": "input/video1.mp4",
+    "line_start": [0, 360],
+    "line_end": [640, 360],
+    "confidence": 0.3
+  },
+  {
+    "video_file": "input/video2.mp4",
+    "line_start": [320, 0],
+    "line_end": [320, 720],
+    "confidence": 0.4
+  }
+]
+```
+
+#### CSV Format
+
+```csv
+video_file,line_start,line_end,confidence
+input/video1.mp4,"0,360","640,360",0.3
+input/video2.mp4,"320,0","320,720",0.4
+```
+
+### Job Parameters
+
+- `video_file`: Path to the video file (relative to the working directory) [required]
+- `line_start`: Starting point of the counting line (x, y) [required]
+- `line_end`: Ending point of the counting line (x, y) [required]
+- `confidence`: Detection confidence threshold (optional, defaults to the value provided in command line)
+- `classes`: List of classes to detect (optional, defaults to [0] for person)
+
+### Output
+
+For each processed video, the following outputs are generated:
+
+1. **Processed Video**: A video file with bounding boxes and counting visualization
+2. **Statistics Text File**: A text file with counting statistics
+3. **Summary File**: A CSV or JSON file summarizing all processed jobs
+
+#### Example Summary CSV
+
+```csv
+video_file,status,output_file,frame_count,up_count,down_count,total_count,processing_time,fps
+input/video1.mp4,success,video1_counting_20250411_185432.mp4,1200,15,12,27,45.32,26.48
+input/video2.mp4,success,video2_counting_20250411_185517.mp4,900,8,10,18,35.67,25.23
+```
+
+### Examples
+
+Process videos using a JSON job file:
+
+```bash
+python batch_processor.py --job-file sample_jobs.json
+```
+
+Process videos using a CSV job file with a custom model:
+
+```bash
+python batch_processor.py --job-file sample_jobs.csv --model models/yolo12m.pt
+```
+
+Process videos with a higher confidence threshold:
+
+```bash
+python batch_processor.py --job-file sample_jobs.json --confidence 0.5
+```
+
+Save the summary in JSON format:
+
+```bash
+python batch_processor.py --job-file sample_jobs.json --summary-format json
+```
+
+### Tips
+
+1. Make sure all video files exist in the specified paths.
+2. The line coordinates should be within the video frame dimensions.
+3. For horizontal counting lines, set different x-coordinates and the same y-coordinate.
+4. For vertical counting lines, set different y-coordinates and the same x-coordinate.
+5. The "up" and "down" counts are relative to the line direction. For a horizontal line, "up" means crossing from bottom to top, and "down" means crossing from top to bottom.
 
 ## How It Works
 
