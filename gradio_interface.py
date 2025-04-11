@@ -142,6 +142,12 @@ class GradioDetector:
             f"Total detections: {detection_count}"
         )
         
+        # Save statistics to text file with similar naming convention as the video
+        stats_filename = os.path.splitext(os.path.basename(output_path))[0] + ".txt"
+        stats_path = os.path.join(os.path.dirname(output_path), stats_filename)
+        with open(stats_path, "w") as f:
+            f.write(stats)
+        
         return result_path, stats
 
 
@@ -344,6 +350,12 @@ class GradioLineSelector:
             f"People count - Up: {up_count}, Down: {down_count}, "
             f"Total: {up_count + down_count}"
         )
+        
+        # Save statistics to text file with similar naming convention as the video
+        stats_filename = os.path.splitext(os.path.basename(output_path))[0] + ".txt"
+        stats_path = os.path.join(os.path.dirname(output_path), stats_filename)
+        with open(stats_path, "w") as f:
+            f.write(stats)
         
         return result_path, stats
 
