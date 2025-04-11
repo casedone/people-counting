@@ -1,5 +1,10 @@
 __pycache__/
 .DS_Store
 
-yolov8n.pt
+yolov8*
+yolov10*
 sample_pedestrians.mp4
+
+output
+
+requirements.txt
