@@ -476,7 +476,12 @@ def create_interface():
                 )
                 
                 # Auto-update folder contents on page load
-                folder_contents.update(value=get_folder_contents())
+                # Using gr.on to set initial value instead of .update() which is no longer supported
+                interface.load(
+                    fn=get_folder_contents,
+                    inputs=[],
+                    outputs=[folder_contents]
+                )
                 
                 # Update clear_all checkbox to control other checkboxes
                 def update_checkboxes(clear_all_value):
@@ -739,7 +744,13 @@ if __name__ == "__main__":
             os.environ["GRADIO_FFPROBE_PATH"] = ffprobe_script_path
     
     # Check if ffmpeg is installed (either locally or system-wide)
-    ffmpeg_installed = shutil.which("ffmpeg") is not None
+    # First check if we have the local binaries
+    bin_ffmpeg_path = os.path.join(os.getcwd(), "bin", "ffmpeg")
+    if os.path.exists(bin_ffmpeg_path) and os.access(bin_ffmpeg_path, os.X_OK):
+        ffmpeg_installed = True
+    else:
+        # Fall back to checking system PATH
+        ffmpeg_installed = shutil.which("ffmpeg") is not None
     
     if not ffmpeg_installed:
         print("WARNING: FFmpeg not found in PATH or local directory.")
