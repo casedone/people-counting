@@ -152,6 +152,65 @@ python people_counter.py --video pedestrians.mp4 --model yolov11n.pt --model-typ
 python people_counter.py --video traffic.mp4 --classes 0 2 --use-solutions --show
 ```
 
+## Folder Cleaner
+
+This module allows you to clear the input, output, and batch_jobs folders individually or in any combination.
+
+### Usage
+
+```bash
+python folder_cleaner.py [options]
+```
+
+### Command Line Arguments
+
+- `--input`: Clear the input folder
+- `--output`: Clear the output folder
+- `--batch-jobs`: Clear the batch_jobs folder
+- `--all`: Clear all folders (input, output, and batch_jobs)
+- `--delete-gitkeep`: Also delete .gitkeep files (by default, .gitkeep files are preserved)
+
+### Examples
+
+Clear the input folder:
+```bash
+python folder_cleaner.py --input
+```
+
+Clear both output and batch_jobs folders:
+```bash
+python folder_cleaner.py --output --batch-jobs
+```
+
+Clear all folders:
+```bash
+python folder_cleaner.py --all
+```
+
+Clear all folders including .gitkeep files:
+```bash
+python folder_cleaner.py --all --delete-gitkeep
+```
+
+### Using in Python Code
+
+You can also use the folder cleaner functions in your Python code:
+
+```python
+import folder_cleaner
+
+# Clear individual folders
+folder_cleaner.clear_input_folder()
+folder_cleaner.clear_output_folder()
+folder_cleaner.clear_batch_jobs_folder()
+
+# Clear multiple folders
+folder_cleaner.clear_folders(['input', 'output'])
+
+# Clear all folders
+folder_cleaner.clear_all_folders()
+```
+
 ## Batch Processing
 
 This module allows you to process multiple videos for people counting in batch mode. It takes a job file that specifies video filenames and counting line coordinates, processes each video, and saves the results in the output folder.

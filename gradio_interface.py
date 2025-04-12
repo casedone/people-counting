@@ -8,6 +8,7 @@ import datetime
 import shutil
 import people_counter
 import people_detector
+import folder_cleaner
 
 class GradioDetector:
     def __init__(self):
@@ -370,6 +371,126 @@ def create_interface():
         
         # Create tabs
         with gr.Tabs() as tabs:
+            # Folder Management Tab
+            with gr.TabItem("Folder Management"):
+                gr.Markdown("# Folder Management")
+                gr.Markdown("Clear input, output, and batch_jobs folders individually or in any combination.")
+                
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        # Folder selection
+                        gr.Markdown("### Select folders to clear")
+                        clear_input = gr.Checkbox(label="Clear input folder", value=False)
+                        clear_output = gr.Checkbox(label="Clear output folder", value=False)
+                        clear_batch_jobs = gr.Checkbox(label="Clear batch_jobs folder", value=False)
+                        clear_all = gr.Checkbox(label="Clear all folders", value=False)
+                        
+                        # Options
+                        gr.Markdown("### Options")
+                        delete_gitkeep = gr.Checkbox(label="Delete .gitkeep files", value=False, 
+                                                    info="By default, .gitkeep files are preserved")
+                        
+                        # Clear button
+                        clear_btn = gr.Button("Clear Selected Folders", variant="primary")
+                    
+                    with gr.Column(scale=2):
+                        # Status message
+                        clear_status = gr.Textbox(label="Status", interactive=False)
+                        
+                        # Folder contents
+                        gr.Markdown("### Current folder contents")
+                        folder_contents = gr.Textbox(label="Folder Contents", interactive=False, lines=15)
+                        refresh_btn = gr.Button("Refresh Folder Contents")
+                
+                # Function to clear folders
+                def clear_folders(clear_input, clear_output, clear_batch_jobs, clear_all, delete_gitkeep):
+                    keep_gitkeep = not delete_gitkeep
+                    result = []
+                    
+                    try:
+                        if clear_all:
+                            count = folder_cleaner.clear_all_folders(keep_gitkeep)
+                            result.append(f"Cleared all folders: {count} files/folders removed")
+                        else:
+                            folders_to_clear = []
+                            if clear_input:
+                                folders_to_clear.append('input')
+                            if clear_output:
+                                folders_to_clear.append('output')
+                            if clear_batch_jobs:
+                                folders_to_clear.append('batch_jobs')
+                            
+                            if not folders_to_clear:
+                                return "No folders selected for clearing"
+                            
+                            count = folder_cleaner.clear_folders(folders_to_clear, keep_gitkeep)
+                            result.append(f"Cleared selected folders: {count} files/folders removed")
+                        
+                        return "\n".join(result)
+                    except Exception as e:
+                        return f"Error clearing folders: {str(e)}"
+                
+                # Function to get folder contents
+                def get_folder_contents():
+                    result = []
+                    
+                    # Check input folder
+                    input_files = os.listdir("input") if os.path.exists("input") else []
+                    result.append(f"Input folder ({len(input_files)} files):")
+                    for file in input_files[:10]:  # Limit to first 10 files
+                        result.append(f"  - {file}")
+                    if len(input_files) > 10:
+                        result.append(f"  - ... and {len(input_files) - 10} more files")
+                    result.append("")
+                    
+                    # Check output folder
+                    output_files = os.listdir("output") if os.path.exists("output") else []
+                    result.append(f"Output folder ({len(output_files)} files):")
+                    for file in output_files[:10]:  # Limit to first 10 files
+                        result.append(f"  - {file}")
+                    if len(output_files) > 10:
+                        result.append(f"  - ... and {len(output_files) - 10} more files")
+                    result.append("")
+                    
+                    # Check batch_jobs folder
+                    batch_jobs_files = os.listdir("batch_jobs") if os.path.exists("batch_jobs") else []
+                    result.append(f"Batch jobs folder ({len(batch_jobs_files)} files):")
+                    for file in batch_jobs_files[:10]:  # Limit to first 10 files
+                        result.append(f"  - {file}")
+                    if len(batch_jobs_files) > 10:
+                        result.append(f"  - ... and {len(batch_jobs_files) - 10} more files")
+                    
+                    return "\n".join(result)
+                
+                # Set up event handlers for Folder Management tab
+                clear_btn.click(
+                    fn=clear_folders,
+                    inputs=[clear_input, clear_output, clear_batch_jobs, clear_all, delete_gitkeep],
+                    outputs=[clear_status]
+                )
+                
+                refresh_btn.click(
+                    fn=get_folder_contents,
+                    inputs=[],
+                    outputs=[folder_contents]
+                )
+                
+                # Auto-update folder contents on page load
+                folder_contents.update(value=get_folder_contents())
+                
+                # Update clear_all checkbox to control other checkboxes
+                def update_checkboxes(clear_all_value):
+                    if clear_all_value:
+                        return gr.update(value=True, interactive=False), gr.update(value=True, interactive=False), gr.update(value=True, interactive=False)
+                    else:
+                        return gr.update(interactive=True), gr.update(interactive=True), gr.update(interactive=True)
+                
+                clear_all.change(
+                    fn=update_checkboxes,
+                    inputs=[clear_all],
+                    outputs=[clear_input, clear_output, clear_batch_jobs]
+                )
+            
             # People Counting Tab
             with gr.TabItem("People Counting"):
                 gr.Markdown("Upload a video, select a frame, draw a counting line, and run the counter.")
