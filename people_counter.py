@@ -156,13 +156,15 @@ def parse_arguments():
     parser.add_argument("--line-end", type=int, nargs=2, default=[0, 0], help="Ending point of counting line (x y)")
     parser.add_argument("--confidence", type=float, default=0.3, help="Detection confidence threshold")
     parser.add_argument("--output", type=str, default="", help="Path to output video file")
+    parser.add_argument("--output-height", type=int, default=480, 
+                        help="Output video height in pixels (default: 480, 0 for original resolution)")
     parser.add_argument("--show", action="store_true", help="Display the video while processing")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--classes", type=int, nargs="+", default=[0], help="Classes to detect (default: 0 for person)")
     return parser.parse_args()
 
 def process_video(video_path, line_start, line_end, model_path, confidence=0.3, classes=[0], 
-                 output_path="object_counting_output.mp4", show=False, verbose=False):
+                 output_path="object_counting_output.mp4", show=False, verbose=False, output_height=480):
     """
     Process a video to count people crossing a line with progress tracking.
     
@@ -176,6 +178,9 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
         output_path: Path to save the output video
         show: Whether to display the video while processing
         verbose: Whether to enable verbose output for the YOLO model
+        output_height: Height of the output video in pixels (default: 480)
+                      Width is calculated to maintain the original aspect ratio.
+                      If set to 0, the original video resolution will be used.
         
     Note:
         Displays a progress bar showing frames processed, percentage complete, and estimated time remaining.
@@ -195,19 +200,46 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
         return None, 0, 0, 0
     
     # Get video properties
-    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    orig_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    orig_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS)
+    
+    # Handle special cases for output_height
+    if output_height < 0:
+        print(f"Warning: Negative output height ({output_height}) is invalid. Using default (480).")
+        output_height = 480
+    
+    # Handle case where output_height is 0 (use original resolution)
+    if output_height == 0 or output_height == orig_height:
+        output_height = orig_height
+        output_width = orig_width
+        scale_x = 1.0
+        scale_y = 1.0
+    else:
+        # Calculate output dimensions while maintaining aspect ratio
+        output_width = int(orig_width * (output_height / orig_height))
+        
+        # Calculate scale factors for coordinate conversion
+        scale_x = output_width / orig_width
+        scale_y = output_height / orig_height
     
     # Set default line if not provided
     if line_start == [0, 0] and line_end == [0, 0]:
         # Default to a horizontal line in the middle of the frame
-        line_start = [0, frame_height // 2]
-        line_end = [frame_width, frame_height // 2]
+        line_start = [0, orig_height // 2]
+        line_end = [orig_width, orig_height // 2]
     
-    # Initialize video writer
+    # Scale line coordinates for output resolution
+    output_line_start = [int(line_start[0] * scale_x), int(line_start[1] * scale_y)]
+    output_line_end = [int(line_end[0] * scale_x), int(line_end[1] * scale_y)]
+    
+    # Initialize video writer with output dimensions
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    output_writer = cv2.VideoWriter(output_path, fourcc, fps, (frame_width, frame_height))
+    output_writer = cv2.VideoWriter(output_path, fourcc, fps, (output_width, output_height))
+    
+    # Print resolution information
+    print(f"Input resolution: {orig_width}x{orig_height}")
+    print(f"Output resolution: {output_width}x{output_height}")
     
     frame_count = 0
     up_count = 0
@@ -253,7 +285,12 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
             # Update tracker
             detections = tracker.update_with_detections(detections)
             
-            # Process each detection
+            # Create a clean frame for display and a clean frame for output
+            display_frame = frame.copy()
+            
+            # Process each detection and update tracking
+            detection_info = []  # Store detection info for drawing later
+            
             for i, (xyxy, _confidence, class_id, tracker_id) in enumerate(zip(
                 detections.xyxy, detections.confidence, detections.class_id, detections.tracker_id
             )):
@@ -268,23 +305,29 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
                 # Update line counter
                 crossing = line_counter.update(tracker_id, (center_x, center_y))
                 
-                # Draw bounding box
+                # Determine color based on crossing status
                 color = (0, 255, 0)  # Green for default
                 if crossing == "up":
                     color = (0, 0, 255)  # Red for up crossing
                 elif crossing == "down":
                     color = (255, 0, 0)  # Blue for down crossing
-                    
-                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
                 
+                # Store detection info for drawing
+                detection_info.append((xyxy, tracker_id, color))
+            
+            # Draw on display frame (original resolution)
+            for xyxy, tracker_id, color in detection_info:
+                x1, y1, x2, y2 = xyxy
+                # Draw bounding box
+                cv2.rectangle(display_frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
                 # Draw ID
-                cv2.putText(frame, f"ID: {tracker_id}", (int(x1), int(y1) - 10), 
+                cv2.putText(display_frame, f"ID: {tracker_id}", (int(x1), int(y1) - 10), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
             
-            # Draw the counting line
-            cv2.line(frame, tuple(line_start), tuple(line_end), (255, 0, 255), 2)
+            # Draw the counting line on display frame
+            cv2.line(display_frame, tuple(line_start), tuple(line_end), (255, 0, 255), 2)
             
-            # Draw counting region
+            # Draw counting region on display frame
             region_points = []
             for t in np.linspace(0, 1, 100):
                 point = np.array(line_start) + t * (np.array(line_end) - np.array(line_start))
@@ -295,20 +338,73 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
                 region_points.append(point - line_counter.normal_vector * line_counter.counting_region)
             
             region_points = np.array(region_points, dtype=np.int32)
-            cv2.polylines(frame, [region_points], True, (255, 0, 255), 1)
+            cv2.polylines(display_frame, [region_points], True, (255, 0, 255), 1)
             
-            # Draw counts
-            cv2.putText(frame, f"Up: {line_counter.up_count} Down: {line_counter.down_count}", 
+            # Draw counts on display frame
+            cv2.putText(display_frame, f"Up: {line_counter.up_count} Down: {line_counter.down_count}", 
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             
-            # Display the frame
+            # Create output frame with appropriate resolution
+            if output_height != orig_height:
+                # Start with a clean resized frame
+                output_frame = cv2.resize(frame.copy(), (output_width, output_height))
+                
+                # Draw the counting line on output frame
+                cv2.line(output_frame, tuple(output_line_start), tuple(output_line_end), (255, 0, 255), 2)
+                
+                # Draw counting region on output frame
+                output_region_points = []
+                # Scale the counting region
+                scaled_counting_region = int(line_counter.counting_region * scale_y)
+                
+                # Calculate normal vector for output resolution
+                output_line_vector = np.array(output_line_end) - np.array(output_line_start)
+                output_line_length = np.linalg.norm(output_line_vector)
+                output_unit_line_vector = output_line_vector / output_line_length
+                output_normal_vector = np.array([-output_unit_line_vector[1], output_unit_line_vector[0]])
+                
+                for t in np.linspace(0, 1, 100):
+                    point = np.array(output_line_start) + t * (np.array(output_line_end) - np.array(output_line_start))
+                    output_region_points.append(point + output_normal_vector * scaled_counting_region)
+                
+                for t in np.linspace(1, 0, 100):
+                    point = np.array(output_line_start) + t * (np.array(output_line_end) - np.array(output_line_start))
+                    output_region_points.append(point - output_normal_vector * scaled_counting_region)
+                
+                output_region_points = np.array(output_region_points, dtype=np.int32)
+                cv2.polylines(output_frame, [output_region_points], True, (255, 0, 255), 1)
+                
+                # Draw detections on output frame with scaled coordinates
+                for xyxy, tracker_id, color in detection_info:
+                    x1, y1, x2, y2 = xyxy
+                    scaled_x1 = int(x1 * scale_x)
+                    scaled_y1 = int(y1 * scale_y)
+                    scaled_x2 = int(x2 * scale_x)
+                    scaled_y2 = int(y2 * scale_y)
+                    
+                    # Draw bounding box with scaled coordinates
+                    cv2.rectangle(output_frame, (scaled_x1, scaled_y1), (scaled_x2, scaled_y2), color, 2)
+                    
+                    # Draw ID with scaled coordinates
+                    cv2.putText(output_frame, f"ID: {tracker_id}", (scaled_x1, scaled_y1 - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5 * scale_y, color, max(1, int(2 * scale_y)))
+                
+                # Draw counts with scaled font size and position
+                cv2.putText(output_frame, f"Up: {line_counter.up_count} Down: {line_counter.down_count}", 
+                            (10, int(30 * scale_y)), cv2.FONT_HERSHEY_SIMPLEX, 
+                            1 * scale_y, (0, 0, 255), max(1, int(2 * scale_y)))
+            else:
+                # If no resizing is needed, use the display frame
+                output_frame = display_frame.copy()
+            
+            # Display the frame (original size for display)
             if show:
-                cv2.imshow('People Counter', frame)
+                cv2.imshow('People Counter', display_frame)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             
-            # Write the frame to output video
-            output_writer.write(frame)
+            # Write the output frame to video
+            output_writer.write(output_frame)
             
         except Exception as e:
             consecutive_errors += 1
@@ -381,7 +477,8 @@ def main():
         classes=args.classes,
         output_path=output_path_arg,
         show=args.show,
-        verbose=args.verbose
+        verbose=args.verbose,
+        output_height=args.output_height
     )
     
     # Print results
