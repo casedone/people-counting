@@ -6,6 +6,7 @@ import supervision as sv
 import os
 import datetime
 from tqdm import tqdm
+import sys
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Detect people in a video using YOLO12")
@@ -131,6 +132,15 @@ def process_video(video_path, model_path, confidence=0.3, classes=[0],
     return output_path, frame_count, total_detections
 
 def main():
+    # Set up local ffmpeg and ffprobe binaries
+    try:
+        from people_counter import setup_local_ffmpeg
+        ffmpeg_path, ffprobe_path = setup_local_ffmpeg()
+        print("Successfully configured local ffmpeg and ffprobe binaries")
+    except Exception as e:
+        print(f"Warning: Failed to set up local ffmpeg/ffprobe: {e}")
+        print("Falling back to system-installed ffmpeg/ffprobe if available")
+    
     args = parse_arguments()
     
     # Ensure output directory exists

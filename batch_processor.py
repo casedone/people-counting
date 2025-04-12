@@ -646,6 +646,15 @@ def main():
     args = parse_arguments()
     
     try:
+        # Set up local ffmpeg and ffprobe binaries
+        try:
+            from people_counter import setup_local_ffmpeg
+            ffmpeg_path, ffprobe_path = setup_local_ffmpeg()
+            print("Successfully configured local ffmpeg and ffprobe binaries")
+        except Exception as e:
+            print(f"Warning: Failed to set up local ffmpeg/ffprobe: {e}")
+            print("Falling back to system-installed ffmpeg/ffprobe if available")
+        
         # Create batch processor
         processor = BatchProcessor(
             job_file=args.job_file,

@@ -15,3 +15,6 @@ batch_jobs/*
 requirements.txt
 
 .gradio/*
+
+bin/*
+!bin/.gitkeep

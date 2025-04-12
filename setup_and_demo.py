@@ -116,6 +116,14 @@ def main():
         # Try to use the process_video function directly
         import people_counter
         
+        # Set up local ffmpeg and ffprobe binaries
+        try:
+            ffmpeg_path, ffprobe_path = people_counter.setup_local_ffmpeg()
+            print("Successfully configured local ffmpeg and ffprobe binaries")
+        except Exception as e:
+            print(f"Warning: Failed to set up local ffmpeg/ffprobe: {e}")
+            print("Falling back to system-installed ffmpeg/ffprobe if available")
+        
         # Output directory already created at the beginning
         output_dir = os.path.join(os.getcwd(), "output")
         

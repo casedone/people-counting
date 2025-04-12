@@ -587,23 +587,35 @@ if __name__ == "__main__":
         print("YOLO12 model not found. Running setup script to download it...")
         subprocess.run(["python", "setup_and_demo.py", "--no-demo"], check=True)
     
-    # Set path to local ffmpeg installation and Python-based ffprobe replacement
-    ffmpeg_dir = os.path.join(os.getcwd(), "ffmpeg")
-    ffmpeg_path = os.path.join(ffmpeg_dir, "ffmpeg")
-    ffprobe_script_path = os.path.join(os.getcwd(), "ffprobe.py")
-    
-    # Add current directory to PATH to find the ffprobe script
-    os.environ["PATH"] = os.getcwd() + os.pathsep + os.environ["PATH"]
-    
-    # Check if ffmpeg executables exist in the local directory
-    if os.path.exists(ffmpeg_dir):
-        # Add ffmpeg directory to PATH environment variable
-        os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ["PATH"]
-        print(f"Using local ffmpeg installation from: {ffmpeg_dir}")
-    
-    # Check if Python-based ffprobe replacement exists
-    if os.path.exists(ffprobe_script_path):
-        print(f"Using Python-based ffprobe replacement: {ffprobe_script_path}")
+    # Set up local ffmpeg and ffprobe binaries
+    try:
+        from people_counter import setup_local_ffmpeg
+        ffmpeg_path, ffprobe_path = setup_local_ffmpeg()
+        print("Successfully configured local ffmpeg and ffprobe binaries")
+    except Exception as e:
+        print(f"Warning: Failed to set up local ffmpeg/ffprobe: {e}")
+        print("Falling back to system-installed ffmpeg/ffprobe if available")
+        
+        # Try to use the old method as fallback
+        ffmpeg_dir = os.path.join(os.getcwd(), "ffmpeg")
+        ffmpeg_path = os.path.join(ffmpeg_dir, "ffmpeg")
+        ffprobe_script_path = os.path.join(os.getcwd(), "ffprobe.py")
+        
+        # Add current directory to PATH to find the ffprobe script
+        os.environ["PATH"] = os.getcwd() + os.pathsep + os.environ["PATH"]
+        
+        # Check if ffmpeg executables exist in the local directory
+        if os.path.exists(ffmpeg_dir):
+            # Add ffmpeg directory to PATH environment variable
+            os.environ["PATH"] = ffmpeg_dir + os.pathsep + os.environ["PATH"]
+            print(f"Using local ffmpeg installation from: {ffmpeg_dir}")
+        
+        # Check if Python-based ffprobe replacement exists
+        if os.path.exists(ffprobe_script_path):
+            print(f"Using Python-based ffprobe replacement: {ffprobe_script_path}")
+            # Set environment variables for ffprobe path that Gradio might use
+            os.environ["FFPROBE_PATH"] = ffprobe_script_path
+            os.environ["GRADIO_FFPROBE_PATH"] = ffprobe_script_path
     
     # Check if ffmpeg is installed (either locally or system-wide)
     ffmpeg_installed = shutil.which("ffmpeg") is not None
@@ -611,10 +623,6 @@ if __name__ == "__main__":
     if not ffmpeg_installed:
         print("WARNING: FFmpeg not found in PATH or local directory.")
         print("Some video processing features may not work correctly.")
-    
-    # Set environment variables for ffprobe path that Gradio might use
-    os.environ["FFPROBE_PATH"] = ffprobe_script_path
-    os.environ["GRADIO_FFPROBE_PATH"] = ffprobe_script_path
     
     # Create and launch the interface
     interface = create_interface()

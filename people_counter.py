@@ -7,6 +7,9 @@ from collections import defaultdict
 import os
 import datetime
 from tqdm import tqdm
+import subprocess
+import sys
+import platform
 
 class LineCounter:
     def __init__(self, start_point, end_point, counting_region=15):
@@ -96,6 +99,52 @@ class LineCounter:
                 return "down"
         
         return False
+
+def setup_local_ffmpeg():
+    """
+    Configure the environment to use local ffmpeg and ffprobe binaries.
+    
+    This function:
+    1. Gets the absolute paths to the local ffmpeg and ffprobe binaries
+    2. Sets environment variables to tell OpenCV and other libraries to use these binaries
+    3. Verifies that the binaries are executable
+    
+    Returns:
+        tuple: (ffmpeg_path, ffprobe_path) - Absolute paths to the binaries
+    """
+    # Get the absolute paths to the binaries
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    ffmpeg_path = os.path.join(script_dir, "bin", "ffmpeg")
+    ffprobe_path = os.path.join(script_dir, "bin", "ffprobe")
+    
+    # Make sure the paths are absolute
+    ffmpeg_path = os.path.abspath(ffmpeg_path)
+    ffprobe_path = os.path.abspath(ffprobe_path)
+    
+    # Verify that the binaries exist
+    if not os.path.isfile(ffmpeg_path):
+        raise FileNotFoundError(f"ffmpeg binary not found at {ffmpeg_path}")
+    if not os.path.isfile(ffprobe_path):
+        raise FileNotFoundError(f"ffprobe binary not found at {ffprobe_path}")
+    
+    # Ensure the binaries are executable
+    if not os.access(ffmpeg_path, os.X_OK):
+        os.chmod(ffmpeg_path, 0o755)  # rwxr-xr-x
+    if not os.access(ffprobe_path, os.X_OK):
+        os.chmod(ffprobe_path, 0o755)  # rwxr-xr-x
+    
+    # Set environment variables for OpenCV and other libraries
+    os.environ["OPENCV_FFMPEG_BINARY"] = ffmpeg_path
+    os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "protocol_whitelist;file,rtp,udp,tcp,https,tls"
+    
+    # Set environment variables for ultralytics/YOLO
+    os.environ["FFMPEG_BINARY"] = ffmpeg_path
+    os.environ["FFPROBE_BINARY"] = ffprobe_path
+    
+    print(f"Using local ffmpeg: {ffmpeg_path}")
+    print(f"Using local ffprobe: {ffprobe_path}")
+    
+    return ffmpeg_path, ffprobe_path
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Count people crossing a line in a video using YOLO12")
@@ -301,6 +350,14 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
     return output_path, frame_count, up_count, down_count
 
 def main():
+    # Set up local ffmpeg and ffprobe binaries
+    try:
+        ffmpeg_path, ffprobe_path = setup_local_ffmpeg()
+        print("Successfully configured local ffmpeg and ffprobe binaries")
+    except Exception as e:
+        print(f"Warning: Failed to set up local ffmpeg/ffprobe: {e}")
+        print("Falling back to system-installed ffmpeg/ffprobe if available")
+    
     args = parse_arguments()
     
     # Generate output filename with timestamp
