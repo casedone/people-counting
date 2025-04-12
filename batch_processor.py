@@ -79,8 +79,9 @@ class BatchProcessor:
     def _load_jobs_from_csv(self):
         """Load jobs from a CSV file."""
         try:
-            # Read CSV file
-            df = pd.read_csv(self.job_file)
+            # Read CSV file with more flexible parsing options
+            # skipinitialspace=True handles spaces after commas
+            df = pd.read_csv(self.job_file, skipinitialspace=True)
             
             # Convert DataFrame to list of dictionaries
             self.jobs = df.to_dict(orient='records')
