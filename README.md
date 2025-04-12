@@ -30,11 +30,9 @@ pip install -r requirements.txt
 3. FFmpeg Requirements:
    - This project requires FFmpeg for video processing
    - The Gradio interface specifically needs both ffmpeg and ffprobe
-   - If you don't have ffprobe installed, the project includes a workaround:
-     - A symlink named `ffprobe` that points to your existing ffmpeg executable
-     - A Python script `ffprobe.py` that provides additional functionality
-   - These files are automatically set up when you run the application
-   - If you encounter video playback issues in the Gradio interface, ensure both files exist in the project directory
+   - **Important**: Place the ffmpeg and ffprobe binary files in the `bin/` folder during setup
+     - The application is configured to use these local binaries instead of system-installed versions
+     - This ensures consistent behavior across different environments
 
 4. Download a YOLO model (if you don't have one already):
 ```bash
@@ -306,18 +304,20 @@ The application uses ByteTrack to maintain consistent tracking IDs for each pers
 - **Missed crossings**: Adjust the counting region size (modify the `counting_region` parameter in the code).
 - **Memory issues**: If you encounter memory problems with large videos, try using a smaller YOLOv8 model.
 - **Video playback issues in Gradio interface**: 
-  - Ensure both ffmpeg and ffprobe are available
-  - If you don't have ffprobe installed system-wide, the application creates:
-    - A symlink named `ffprobe` pointing to your ffmpeg executable
-    - A Python script `ffprobe.py` that provides additional functionality
-  - If these files are missing or corrupted, recreate them:
+  - Ensure the ffmpeg and ffprobe binaries are correctly placed in the `bin/` folder
+  - Check that the binaries have executable permissions (see the next troubleshooting item)
+
+- **Issues with ffmpeg/ffprobe binaries**:
+  - Make sure the ffmpeg and ffprobe binaries are placed in the `bin/` folder
+  - Ensure the binaries have executable permissions:
     ```bash
-    # Create the symlink (assuming ffmpeg is at /usr/local/bin/ffmpeg)
-    ln -s /usr/local/bin/ffmpeg ffprobe
-    
-    # Ensure the Python script exists and is executable
-    chmod +x ffprobe.py
+    chmod +x bin/ffmpeg bin/ffprobe
     ```
+  - If you're still experiencing issues, you can check if the application is correctly detecting the binaries by running:
+    ```bash
+    python -c "from people_counter import setup_local_ffmpeg; setup_local_ffmpeg()"
+    ```
+  - This should output the paths to the detected ffmpeg and ffprobe binaries
 
 ## License
 
