@@ -181,80 +181,99 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
     progress_bar = tqdm(total=total_frames, desc="Processing video", 
                         unit="frames", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]")
     
+    consecutive_errors = 0
+    max_consecutive_errors = 10  # Maximum number of consecutive errors before giving up
+    
     while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
-        
-        frame_count += 1
-        progress_bar.update(1)
-        
-        # Run YOLO inference on the frame
-        # Ensure confidence is a Python native float, not float32
-        results = model(frame, conf=float(confidence), classes=classes, verbose=False)
-        
-        # Get detections
-        detections = sv.Detections.from_ultralytics(results[0])
-        
-        # Update tracker
-        detections = tracker.update_with_detections(detections)
-        
-        # Process each detection
-        for i, (xyxy, _confidence, class_id, tracker_id) in enumerate(zip(
-            detections.xyxy, detections.confidence, detections.class_id, detections.tracker_id
-        )):
-            if tracker_id is None:
-                continue
-                
-            # Calculate center point of the bounding box
-            x1, y1, x2, y2 = xyxy
-            center_x = (x1 + x2) / 2
-            center_y = (y1 + y2) / 2
-            
-            # Update line counter
-            crossing = line_counter.update(tracker_id, (center_x, center_y))
-            
-            # Draw bounding box
-            color = (0, 255, 0)  # Green for default
-            if crossing == "up":
-                color = (0, 0, 255)  # Red for up crossing
-            elif crossing == "down":
-                color = (255, 0, 0)  # Blue for down crossing
-                
-            cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
-            
-            # Draw ID
-            cv2.putText(frame, f"ID: {tracker_id}", (int(x1), int(y1) - 10), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
-        
-        # Draw the counting line
-        cv2.line(frame, tuple(line_start), tuple(line_end), (255, 0, 255), 2)
-        
-        # Draw counting region
-        region_points = []
-        for t in np.linspace(0, 1, 100):
-            point = np.array(line_start) + t * (np.array(line_end) - np.array(line_start))
-            region_points.append(point + line_counter.normal_vector * line_counter.counting_region)
-        
-        for t in np.linspace(1, 0, 100):
-            point = np.array(line_start) + t * (np.array(line_end) - np.array(line_start))
-            region_points.append(point - line_counter.normal_vector * line_counter.counting_region)
-        
-        region_points = np.array(region_points, dtype=np.int32)
-        cv2.polylines(frame, [region_points], True, (255, 0, 255), 1)
-        
-        # Draw counts
-        cv2.putText(frame, f"Up: {line_counter.up_count} Down: {line_counter.down_count}", 
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-        
-        # Display the frame
-        if show:
-            cv2.imshow('People Counter', frame)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+        try:
+            ret, frame = cap.read()
+            if not ret:
                 break
+            
+            frame_count += 1
+            progress_bar.update(1)
+            consecutive_errors = 0  # Reset error counter on successful frame read
         
-        # Write the frame to output video
-        output_writer.write(frame)
+            # Run YOLO inference on the frame
+            # Ensure confidence is a Python native float, not float32
+            results = model(frame, conf=float(confidence), classes=classes, verbose=False)
+            
+            # Get detections
+            detections = sv.Detections.from_ultralytics(results[0])
+        
+            # Update tracker
+            detections = tracker.update_with_detections(detections)
+            
+            # Process each detection
+            for i, (xyxy, _confidence, class_id, tracker_id) in enumerate(zip(
+                detections.xyxy, detections.confidence, detections.class_id, detections.tracker_id
+            )):
+                if tracker_id is None:
+                    continue
+                    
+                # Calculate center point of the bounding box
+                x1, y1, x2, y2 = xyxy
+                center_x = (x1 + x2) / 2
+                center_y = (y1 + y2) / 2
+                
+                # Update line counter
+                crossing = line_counter.update(tracker_id, (center_x, center_y))
+                
+                # Draw bounding box
+                color = (0, 255, 0)  # Green for default
+                if crossing == "up":
+                    color = (0, 0, 255)  # Red for up crossing
+                elif crossing == "down":
+                    color = (255, 0, 0)  # Blue for down crossing
+                    
+                cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+                
+                # Draw ID
+                cv2.putText(frame, f"ID: {tracker_id}", (int(x1), int(y1) - 10), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            
+            # Draw the counting line
+            cv2.line(frame, tuple(line_start), tuple(line_end), (255, 0, 255), 2)
+            
+            # Draw counting region
+            region_points = []
+            for t in np.linspace(0, 1, 100):
+                point = np.array(line_start) + t * (np.array(line_end) - np.array(line_start))
+                region_points.append(point + line_counter.normal_vector * line_counter.counting_region)
+            
+            for t in np.linspace(1, 0, 100):
+                point = np.array(line_start) + t * (np.array(line_end) - np.array(line_start))
+                region_points.append(point - line_counter.normal_vector * line_counter.counting_region)
+            
+            region_points = np.array(region_points, dtype=np.int32)
+            cv2.polylines(frame, [region_points], True, (255, 0, 255), 1)
+            
+            # Draw counts
+            cv2.putText(frame, f"Up: {line_counter.up_count} Down: {line_counter.down_count}", 
+                        (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+            
+            # Display the frame
+            if show:
+                cv2.imshow('People Counter', frame)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            
+            # Write the frame to output video
+            output_writer.write(frame)
+            
+        except Exception as e:
+            consecutive_errors += 1
+            print(f"\nError processing frame: {e}")
+            
+            # Skip to the next frame if there's an error
+            # If we've had too many consecutive errors, break the loop
+            if consecutive_errors >= max_consecutive_errors:
+                print(f"Too many consecutive errors ({max_consecutive_errors}). Stopping processing.")
+                break
+            
+            # Try to seek to the next frame
+            current_pos = int(cap.get(cv2.CAP_PROP_POS_FRAMES))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, current_pos + 1)
     
     # Close progress bar
     progress_bar.close()
@@ -267,6 +286,16 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
     cap.release()
     output_writer.release()
     cv2.destroyAllWindows()
+    
+    # Print summary of processing
+    print(f"\nVideo processing summary:")
+    print(f"  Total frames processed: {frame_count}")
+    print(f"  People count - Up: {up_count}, Down: {down_count}, Total: {up_count + down_count}")
+    
+    if consecutive_errors > 0:
+        print(f"  Warning: {consecutive_errors} errors encountered during processing.")
+        print(f"  The video may be corrupted or have encoding issues.")
+        print(f"  Results represent partial processing up to the point of failure.")
     
     # Return results
     return output_path, frame_count, up_count, down_count
