@@ -6,6 +6,7 @@ import supervision as sv
 from collections import defaultdict
 import os
 import datetime
+from tqdm import tqdm
 
 class LineCounter:
     def __init__(self, start_point, end_point, counting_region=15):
@@ -107,13 +108,14 @@ def parse_arguments():
     parser.add_argument("--confidence", type=float, default=0.3, help="Detection confidence threshold")
     parser.add_argument("--output", type=str, default="", help="Path to output video file")
     parser.add_argument("--show", action="store_true", help="Display the video while processing")
+    parser.add_argument("--verbose", action="store_true", help="Enable verbose output")
     parser.add_argument("--classes", type=int, nargs="+", default=[0], help="Classes to detect (default: 0 for person)")
     return parser.parse_args()
 
 def process_video(video_path, line_start, line_end, model_path, confidence=0.3, classes=[0], 
-                 output_path="object_counting_output.mp4", show=False):
+                 output_path="object_counting_output.mp4", show=False, verbose=False):
     """
-    Process a video to count people crossing a line.
+    Process a video to count people crossing a line with progress tracking.
     
     Args:
         video_path: Path to the input video
@@ -124,6 +126,10 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
         classes: List of classes to detect
         output_path: Path to save the output video
         show: Whether to display the video while processing
+        verbose: Whether to enable verbose output for the YOLO model
+        
+    Note:
+        Displays a progress bar showing frames processed, percentage complete, and estimated time remaining.
         
     Returns:
         tuple: (output_path, frame_count, up_count, down_count)
@@ -163,22 +169,29 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
     
     # Initialize YOLO model
     print(f"model_path = {model_path}")
-    model = YOLO(model_path, task='detect', verbose=False)
+    model = YOLO(model_path, task='detect', verbose=verbose)
     
     # Initialize tracker
     tracker = sv.ByteTrack()
     
-    # Process the video
+    # Get total frame count for progress bar
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    # Process the video with progress bar
+    progress_bar = tqdm(total=total_frames, desc="Processing video", 
+                        unit="frames", bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]")
+    
     while cap.isOpened():
         ret, frame = cap.read()
         if not ret:
             break
         
         frame_count += 1
+        progress_bar.update(1)
         
         # Run YOLO inference on the frame
         # Ensure confidence is a Python native float, not float32
-        results = model(frame, conf=float(confidence), classes=classes)
+        results = model(frame, conf=float(confidence), classes=classes, verbose=False)
         
         # Get detections
         detections = sv.Detections.from_ultralytics(results[0])
@@ -243,6 +256,9 @@ def process_video(video_path, line_start, line_end, model_path, confidence=0.3, 
         # Write the frame to output video
         output_writer.write(frame)
     
+    # Close progress bar
+    progress_bar.close()
+    
     # Get counts
     up_count = line_counter.up_count
     down_count = line_counter.down_count
@@ -278,7 +294,8 @@ def main():
         confidence=args.confidence,
         classes=args.classes,
         output_path=output_path_arg,
-        show=args.show
+        show=args.show,
+        verbose=args.verbose
     )
     
     # Print results
