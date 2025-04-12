@@ -8,6 +8,7 @@ import datetime
 import time
 from pathlib import Path
 import pandas as pd
+import cv2
 from typing import List, Dict, Any, Tuple, Optional
 
 # Import the people counting functionality
@@ -144,6 +145,80 @@ class BatchProcessor:
         
         self.jobs = valid_jobs
         print(f"Loaded {len(self.jobs)} valid jobs.")
+    
+    def test_jobs(self) -> Tuple[List[Dict[str, Any]], bool]:
+        """
+        Test all jobs to check if they can be loaded and processed without actually processing them.
+        
+        Returns:
+            Tuple containing:
+            - List of test results for each job
+            - Boolean indicating if any errors were found
+        """
+        test_results = []
+        has_errors = False
+        
+        print(f"Testing {len(self.jobs)} jobs...")
+        
+        for i, job in enumerate(self.jobs):
+            print(f"Testing job {i+1}/{len(self.jobs)}: {job['video_file']}")
+            
+            try:
+                # Extract job parameters
+                video_file = job['video_file']
+                line_start = job['line_start']
+                line_end = job['line_end']
+                
+                # Get optional parameters with defaults
+                confidence = job.get('confidence', self.confidence)
+                classes = job.get('classes', [0])  # Default to class 0 (person)
+                
+                # Check if video file exists
+                video_path = os.path.join(os.getcwd(), video_file)
+                if not os.path.isfile(video_path):
+                    raise FileNotFoundError(f"Video file not found: {video_path}")
+                
+                # Check if model exists
+                if not os.path.isfile(self.model_path):
+                    raise FileNotFoundError(f"Model file not found: {self.model_path}")
+                
+                # Try to open the video to check if it's valid
+                cap = cv2.VideoCapture(video_path)
+                if not cap.isOpened():
+                    raise RuntimeError(f"Could not open video: {video_path}")
+                
+                # Read the first frame to check if video is readable
+                ret, _ = cap.read()
+                if not ret:
+                    raise RuntimeError(f"Could not read frames from video: {video_path}")
+                
+                # Release the video capture
+                cap.release()
+                
+                # Add successful test to results
+                test_results.append({
+                    'job': job,
+                    'status': 'success'
+                })
+                print(f"Job {i+1} test passed.")
+                
+            except Exception as e:
+                has_errors = True
+                print(f"Error testing job {i+1}: {str(e)}")
+                # Add failed test to results
+                test_results.append({
+                    'job': job,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+        
+        # Print summary
+        success_count = sum(1 for r in test_results if r['status'] == 'success')
+        failed_count = sum(1 for r in test_results if r['status'] == 'failed')
+        
+        print(f"\nTest summary: {success_count} jobs passed, {failed_count} jobs failed.")
+        
+        return test_results, has_errors
     
     def process_all(self) -> List[Dict[str, Any]]:
         """
@@ -340,27 +415,48 @@ def main():
             output_dir=args.output_dir
         )
         
-        # Process all jobs
-        print(f"Starting batch processing of {len(processor.jobs)} jobs...")
-        results = processor.process_all()
+        # First, test all jobs
+        print(f"Testing {len(processor.jobs)} jobs before processing...")
+        test_results, has_errors = processor.test_jobs()
         
-        # Save summary
-        summary_path = processor.save_summary(results, format=args.summary_format)
-        print(f"\nBatch processing complete. Summary saved to: {summary_path}")
+        # If there are errors, ask user if they want to proceed
+        proceed = True
+        if has_errors:
+            while True:
+                user_input = input("\nSome jobs have errors. Do you want to proceed with processing? (y/n): ").lower()
+                if user_input in ['y', 'yes']:
+                    proceed = True
+                    break
+                elif user_input in ['n', 'no']:
+                    proceed = False
+                    break
+                else:
+                    print("Please enter 'y' or 'n'.")
         
-        # Count successes and failures
-        successes = sum(1 for r in results if r['status'] == 'success')
-        failures = sum(1 for r in results if r['status'] == 'failed')
-        
-        print(f"Processed {len(results)} jobs: {successes} successful, {failures} failed.")
-        
-        if successes > 0:
-            # Calculate total counts
-            total_up = sum(r['stats']['up_count'] for r in results if r['status'] == 'success')
-            total_down = sum(r['stats']['down_count'] for r in results if r['status'] == 'success')
-            total_count = total_up + total_down
+        if proceed:
+            # Process all jobs
+            print(f"\nStarting batch processing of {len(processor.jobs)} jobs...")
+            results = processor.process_all()
             
-            print(f"Total people counted - Up: {total_up}, Down: {total_down}, Total: {total_count}")
+            # Save summary
+            summary_path = processor.save_summary(results, format=args.summary_format)
+            print(f"\nBatch processing complete. Summary saved to: {summary_path}")
+            
+            # Count successes and failures
+            successes = sum(1 for r in results if r['status'] == 'success')
+            failures = sum(1 for r in results if r['status'] == 'failed')
+            
+            print(f"Processed {len(results)} jobs: {successes} successful, {failures} failed.")
+            
+            if successes > 0:
+                # Calculate total counts
+                total_up = sum(r['stats']['up_count'] for r in results if r['status'] == 'success')
+                total_down = sum(r['stats']['down_count'] for r in results if r['status'] == 'success')
+                total_count = total_up + total_down
+                
+                print(f"Total people counted - Up: {total_up}, Down: {total_down}, Total: {total_count}")
+        else:
+            print("\nBatch processing cancelled by user.")
         
     except Exception as e:
         print(f"Error: {str(e)}")
